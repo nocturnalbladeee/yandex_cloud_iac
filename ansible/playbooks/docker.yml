@@ -1,0 +1,54 @@
+---
+- name: Install Docker
+  hosts: gitlab_runners
+  become: true
+  vars_files:
+  - ../group_vars/all.yml
+  - ../group_vars/{{ __environment }}.yml
+
+  tasks:
+  - name: Remove old Docker packages
+    apt:
+      name:
+      - docker
+      - docker-engine
+      - docker.io
+      - containerd
+      - runc
+      state: absent
+
+  - name: Add Docker GPG key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add Docker repository
+    apt_repository:
+      repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
+      state: present
+
+  - name: Install Docker
+    apt:
+      name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+      state: present
+      update_cache: yes
+
+  - name: Start and enable Docker
+    systemd:
+      name: docker
+      state: started
+      enabled: yes
+
+  - name: Add gitlab-runner user (for later)
+    user:
+      name: gitlab-runner
+      groups: docker
+      append: yes
+      shell: /bin/bash
+      create_home: yes
+    ignore_errors: true

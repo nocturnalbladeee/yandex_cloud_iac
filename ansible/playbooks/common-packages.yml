@@ -1,0 +1,26 @@
+---
+- name: Common packages installation
+  hosts: gitlab_runners
+  become: true
+  vars_files:
+  - ../group_vars/all.yml
+  - ../group_vars/{{ __environment }}.yml
+
+  tasks:
+  - name: Update apt cache
+    apt:
+      update_cache: yes
+      cache_valid_time: 3600
+
+  - name: Install common packages
+    apt:
+      name:
+      - curl
+      - wget
+      - git
+      - htop
+      - net-tools
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      state: present

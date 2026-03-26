@@ -1,0 +1,12 @@
+---
+__environment: production
+
+gitlab_url: "https://gitlab-java-app-prod.gitlab.yandexcloud.net"
+gitlab_runner_concurrent: 4
+gitlab_runner_tags: "docker,java,react,production"
+gitlab_runner_executor: "docker"
+gitlab_runner_docker_image: "alpine:latest"
+
+runner_description: "docker-runner-{{ inventory_hostname }}"
+runner_locked: false
+runner_run_untagged: false

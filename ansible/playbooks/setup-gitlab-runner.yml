@@ -1,0 +1,81 @@
+---
+- name: Install and register GitLab Runner
+  hosts: gitlab_runners
+  become: true
+  vars_files:
+  - ../group_vars/all.yml
+  - ../group_vars/{{ __environment }}.yml
+  - ../vault.yml 
+
+  tasks:
+  - name: Add GitLab Runner repository
+    shell: |
+      curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | sudo bash
+    args:
+      creates: /etc/apt/sources.list.d/runner_gitlab-runner.list
+    register: repo_added
+
+  - name: Install GitLab Runner
+    apt:
+      name: gitlab-runner
+      state: present
+      update_cache: yes
+  - name: Install python3-pip
+    apt:
+      name: python3-pip
+      state: present
+
+  - name: Install python-gitlab (>=4.0.0) for Ansible module
+    pip:
+      name: python-gitlab
+      state: present
+
+
+  - name: Install requests library (dependency)
+    pip:
+      name: requests
+      state: present
+
+  - name: Register runner with GitLab
+    community.general.gitlab_runner:
+      api_url: "{{ gitlab_url }}"
+      api_token: "{{ vault_gitlab_api_token }}"
+      description: "{{ runner_description }}"
+      state: present
+      active: true
+      tag_list: "{{ gitlab_runner_tags | split(',') }}"
+      run_untagged: "{{ runner_run_untagged }}"
+      locked: "{{ runner_locked }}"
+    register: runner_reg
+    notify: restart gitlab-runner
+
+  - name: Configure concurrent jobs
+    lineinfile:
+      path: /etc/gitlab-runner/config.toml
+      regexp: '^concurrent ='
+      line: 'concurrent = {{ gitlab_runner_concurrent }}'
+    notify: restart gitlab-runner
+
+  - name: Ensure gitlab-runner is running
+    systemd:
+      name: gitlab-runner
+      state: started
+      enabled: yes
+
+  - name: Register runner on VM
+    command: |
+      sudo gitlab-runner register
+      --non-interactive
+      --url "{{ gitlab_url }}"
+      --token "{{ runner_reg.runner.token }}"  
+      --executor "docker"
+      --docker-image "alpine:latest"
+      --description "{{ runner_description }}"
+    when: runner_reg.changed
+    notify: restart gitlab-runner
+
+  handlers:
+  - name: restart gitlab-runner
+    systemd:
+      name: gitlab-runner
+      state: restarted
